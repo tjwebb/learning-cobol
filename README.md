@@ -17,7 +17,9 @@ make
 sudo make install
 ```
 
-## Build Programs!
+## Write Programs!
+
+### Typical
 
 ```sh
 # compile to executable
@@ -27,7 +29,23 @@ cobc -x executable.cob
 cobc lib.cob
 ```
 
-## Example
+### Run as Script
+
+```cob
+#!/usr/local/bin/cobc -xj
+       identification division.
+       program-id. script1.
+       procedure division.
+       display "i'm a cobol script"
+```
+
+### Compile and Run
+
+```sh
+$ cob -xj sourcefile.cob
+```
+
+## Simple Example
 
 ```cob
        identification division.
