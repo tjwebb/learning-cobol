@@ -6,7 +6,7 @@ A collection of code I'm writing in order to learn cobol. Do not use this code f
 
 #### 1. Download gnu-cobol
 
-[https://sourceforge.net/projects/open-cobol/]
+https://sourceforge.net/projects/open-cobol/
 
 #### 2. Compile and Install
 
