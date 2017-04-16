@@ -1,0 +1,435 @@
+## Copyright (C) 2003-2012, 2014-2015 Free Software Foundation, Inc.
+## Written by Keisuke Nishida, Roger While, Simon Sobisch
+##
+## This file is part of GnuCOBOL.
+##
+## The GnuCOBOL compiler is free software: you can redistribute it
+## and/or modify it under the terms of the GNU General Public License
+## as published by the Free Software Foundation, either version 3 of the
+## License, or (at your option) any later version.
+##
+## GnuCOBOL is distributed in the hope that it will be useful,
+## but WITHOUT ANY WARRANTY; without even the implied warranty of
+## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+## GNU General Public License for more details.
+##
+## You should have received a copy of the GNU General Public License
+## along with GnuCOBOL.  If not, see <http://www.gnu.org/licenses/>.
+
+### GnuCOBOL Test Suite
+
+AT_SETUP([READ INTO AT-END sequence])
+AT_KEYWORDS([runfile])
+
+AT_DATA([prog.cob], [
+       IDENTIFICATION   DIVISION.
+       PROGRAM-ID.      prog.
+       ENVIRONMENT      DIVISION.
+       INPUT-OUTPUT     SECTION.
+       FILE-CONTROL.
+       SELECT TEST-FILE ASSIGN "./TEST-FILE".
+       DATA             DIVISION.
+       FILE             SECTION.
+       FD  TEST-FILE.
+       01  TEST-REC     PIC X(10).
+       WORKING-STORAGE  SECTION.
+       01  X            PIC X(10).
+       PROCEDURE        DIVISION.
+           OPEN  OUTPUT TEST-FILE.
+           CLOSE TEST-FILE.
+           OPEN  INPUT  TEST-FILE.
+           READ  TEST-FILE INTO X
+               AT END MOVE ALL ZERO TO X
+           END-READ.
+           CLOSE TEST-FILE.
+           IF X NOT = "0000000000"
+              DISPLAY "Expected zeros - Got " X
+              END-DISPLAY
+           END-IF.
+           STOP RUN.
+])
+
+AT_CHECK([$COMPILE prog.cob], [0], [], [])
+AT_CHECK([./prog], [0], [], [])
+
+AT_CLEANUP
+
+
+AT_SETUP([First READ on empty SEQUENTIAL INDEXED file])
+AT_KEYWORDS([runfile])
+
+AT_CHECK([test "$COB_HAS_ISAM" = "yes" || exit 77])
+
+AT_DATA([prog.cob], [
+       IDENTIFICATION   DIVISION.
+       PROGRAM-ID.      prog.
+       ENVIRONMENT      DIVISION.
+       INPUT-OUTPUT     SECTION.
+       FILE-CONTROL.
+       SELECT TEST-FILE ASSIGN       "./TEST-FILE"
+                        ORGANIZATION IS  INDEXED
+                        ACCESS MODE  IS  SEQUENTIAL
+                        RECORD KEY   IS  TEST-KEY.
+       DATA             DIVISION.
+       FILE             SECTION.
+       FD TEST-FILE.
+       01 TEST-KEY      PIC X(10).
+       PROCEDURE        DIVISION.
+           OPEN  OUTPUT TEST-FILE.
+           CLOSE TEST-FILE.
+           OPEN  INPUT  TEST-FILE.
+           READ  TEST-FILE
+                 AT END
+                   CONTINUE
+                 NOT AT END
+                   DISPLAY "NOT OK"
+                   END-DISPLAY
+           END-READ.
+           CLOSE TEST-FILE.
+           STOP RUN.
+])
+
+AT_CHECK([$COMPILE prog.cob], [0], [], [])
+AT_CHECK([./prog], [0], [], [])
+
+AT_CLEANUP
+
+
+AT_SETUP([REWRITE a RELATIVE file with RANDOM access])
+AT_KEYWORDS([runfile])
+
+AT_DATA([prog.cob], [
+       IDENTIFICATION   DIVISION.
+       PROGRAM-ID.      prog.
+       ENVIRONMENT      DIVISION.
+       INPUT-OUTPUT     SECTION.
+       FILE-CONTROL.
+       SELECT TEST-FILE ASSIGN       "./TEST-FILE"
+                        ORGANIZATION IS RELATIVE
+                        ACCESS MODE  IS RANDOM
+                        RELATIVE KEY IS TEST-KEY.
+       DATA             DIVISION.
+       FILE             SECTION.
+       FD TEST-FILE.
+       01 TEST-REC      PIC X.
+       WORKING-STORAGE  SECTION.
+       01 TEST-KEY      PIC 9.
+       PROCEDURE        DIVISION.
+      *
+           OPEN OUTPUT TEST-FILE.
+           MOVE 1 TO TEST-KEY.
+           MOVE "A" TO TEST-REC.
+           WRITE TEST-REC
+           END-WRITE.
+           MOVE 2 TO TEST-KEY.
+           MOVE "B" TO TEST-REC.
+           WRITE TEST-REC
+           END-WRITE.
+           CLOSE TEST-FILE.
+      *
+           OPEN I-O TEST-FILE.
+           MOVE 1 TO TEST-KEY.
+           READ TEST-FILE
+           END-READ.
+           MOVE 2 TO TEST-KEY.
+           MOVE "C" TO TEST-REC.
+           REWRITE TEST-REC
+           END-REWRITE.
+           CLOSE TEST-FILE.
+      *
+           OPEN INPUT TEST-FILE.
+           MOVE 1 TO TEST-KEY.
+           READ TEST-FILE
+           END-READ.
+           IF TEST-REC NOT = "A"
+              DISPLAY "Expected 'A' - Got " TEST-REC
+              END-DISPLAY
+           END-IF.
+           MOVE 2 TO TEST-KEY.
+           READ TEST-FILE
+           END-READ.
+           IF TEST-REC NOT = "C"
+              DISPLAY "Expected 'C' - Got " TEST-REC
+              END-DISPLAY
+           END-IF.
+           CLOSE TEST-FILE.
+           STOP RUN.
+])
+
+AT_CHECK([$COMPILE prog.cob], [0], [], [])
+AT_CHECK([./prog], [0], [], [])
+
+AT_CLEANUP
+
+
+AT_SETUP([SORT with SD, I/O SEQUENTIAL])
+AT_KEYWORDS([runfile using giving])
+
+AT_DATA([prog.cob], [
+       IDENTIFICATION   DIVISION.
+       PROGRAM-ID.      prog.
+       ENVIRONMENT      DIVISION.
+       INPUT-OUTPUT     SECTION.
+       FILE-CONTROL.
+       SELECT SORT-IN   ASSIGN "test.txt".
+       SELECT SORT-OUT  ASSIGN "result.txt".
+       SELECT SORT-WRK  ASSIGN "SORT-WRK".
+       DATA             DIVISION.
+       FILE             SECTION.
+       FD SORT-IN.
+       01 IN-REC        PIC X(6).
+       FD SORT-OUT.
+       01 OUT-REC       PIC X(6).
+       SD SORT-WRK.
+       01 WRK-REC       PIC X(6).
+       PROCEDURE        DIVISION.
+
+      * We shouldn't use AT_DATA to create sequential record
+      * data, because AT_DATA needs a \n at the end
+           OPEN OUTPUT SORT-IN.
+           WRITE IN-REC FROM SPACES   END-WRITE.
+           WRITE IN-REC FROM SPACES   END-WRITE.
+           WRITE IN-REC FROM "world " END-WRITE.
+           WRITE IN-REC FROM SPACES   END-WRITE.
+           WRITE IN-REC FROM "hello " END-WRITE.
+           WRITE IN-REC FROM SPACES   END-WRITE.
+           WRITE IN-REC FROM SPACES   END-WRITE.
+           CLOSE SORT-IN.
+
+           SORT SORT-WRK
+                ASCENDING KEY WRK-REC
+                USING  SORT-IN
+                GIVING SORT-OUT.
+             STOP RUN.
+])
+
+AT_CHECK([$COMPILE prog.cob], [0], [], [])
+AT_CHECK([./prog], [0], [], [])
+AT_CHECK([cat result.txt], [0], [                              hello world ], [])
+
+AT_CLEANUP
+
+
+AT_SETUP([SORT with SD, I/O LINE SEQUENTIAL])
+AT_KEYWORDS([runfile using giving])
+
+AT_DATA([prog.cob], [
+       IDENTIFICATION   DIVISION.
+       PROGRAM-ID.      prog.
+       ENVIRONMENT      DIVISION.
+       INPUT-OUTPUT     SECTION.
+       FILE-CONTROL.
+       SELECT SORT-IN   ASSIGN "test.txt"
+                        ORGANISATION LINE SEQUENTIAL.
+       SELECT SORT-OUT  ASSIGN "result.txt"
+                        ORGANISATION LINE SEQUENTIAL.
+       SELECT SORT-WRK  ASSIGN "SORT-WRK".
+       DATA             DIVISION.
+       FILE             SECTION.
+       FD SORT-IN.
+       01 IN-REC        PIC X(20).
+       FD SORT-OUT.
+       01 OUT-REC       PIC X(20).
+       SD SORT-WRK.
+       01 WRK-REC       PIC X(6).
+       PROCEDURE        DIVISION.
+
+      * We shouldn't use AT_DATA to create sequential record
+      * data, because AT_DATA needs a \n at the end
+           OPEN OUTPUT SORT-IN.
+           WRITE IN-REC FROM SPACES   END-WRITE.
+           WRITE IN-REC FROM SPACES   END-WRITE.
+           WRITE IN-REC FROM "world " END-WRITE.
+           WRITE IN-REC FROM SPACES   END-WRITE.
+           WRITE IN-REC FROM "hello " END-WRITE.
+           WRITE IN-REC FROM SPACES   END-WRITE.
+           WRITE IN-REC FROM SPACES   END-WRITE.
+           CLOSE SORT-IN.
+
+           SORT SORT-WRK
+                ASCENDING KEY WRK-REC
+                USING  SORT-IN
+                GIVING SORT-OUT.
+             STOP RUN.
+])
+
+AT_CHECK([$COMPILE prog.cob], [0], [], [])
+AT_CHECK([./prog], [0], [], [])
+AT_CHECK([cat result.txt], [0], [
+
+
+
+
+hello
+world
+], [])
+
+AT_CLEANUP
+
+
+AT_SETUP([SORT with SD, I/O LINE SEQUENTIAL same file])
+AT_KEYWORDS([runfile using giving])
+
+AT_DATA([test.txt], [
+bla
+world
+hello
+
+blubb
+])
+
+AT_DATA([prog.cob], [
+       IDENTIFICATION   DIVISION.
+       PROGRAM-ID.      prog.
+       ENVIRONMENT      DIVISION.
+       INPUT-OUTPUT     SECTION.
+       FILE-CONTROL.
+       SELECT SORT-IN   ASSIGN "test.txt"
+                        ORGANISATION LINE SEQUENTIAL.
+       SELECT SORT-WRK  ASSIGN "dummy".
+       DATA             DIVISION.
+       FILE             SECTION.
+       FD SORT-IN.
+       01 IN-REC        PIC X(6).
+       SD SORT-WRK.
+       01 sort-entry    PIC X(6).
+       PROCEDURE        DIVISION.
+
+      * We shouldn't use : > to create sequential record
+      * data, because : > needs a \n at the end
+      *     OPEN OUTPUT SORT-IN.
+      *     WRITE IN-REC FROM SPACES   END-WRITE.
+      *     WRITE IN-REC FROM "world " END-WRITE.
+      *     WRITE IN-REC FROM "hello " END-WRITE.
+      *     WRITE IN-REC FROM SPACES   END-WRITE.
+      *     CLOSE SORT-IN.
+
+           SORT SORT-WRK
+                ASCENDING sort-entry
+                USING  SORT-IN
+                GIVING SORT-IN.
+             STOP RUN.
+])
+
+AT_CHECK([$COMPILE prog.cob], [0], [], [])
+AT_CHECK([./prog], [0], [], [])
+AT_CHECK([cat test.txt], [0], [
+
+bla
+blubb
+hello
+world
+], [])
+
+AT_CLEANUP
+
+
+AT_SETUP([SORT nonexistent file])
+AT_KEYWORDS([runfile])
+
+AT_DATA([prog.cob], [
+       IDENTIFICATION   DIVISION.
+       PROGRAM-ID.      prog.
+       ENVIRONMENT      DIVISION.
+       INPUT-OUTPUT     SECTION.
+       FILE-CONTROL.
+       SELECT SORT-IN   ASSIGN "SORT-IN".
+       SELECT SORT-OUT  ASSIGN "SORT-OUT".
+       SELECT SORT-WRK  ASSIGN "SORT-WRK".
+       DATA             DIVISION.
+       FILE             SECTION.
+       FD SORT-IN.
+       01 IN-REC        PIC X(100).
+       FD SORT-OUT.
+       01 OUT-REC       PIC X(100).
+       SD SORT-WRK.
+       01 WRK-REC       PIC X(100).
+       PROCEDURE        DIVISION.
+           SORT SORT-WRK
+                ASCENDING KEY WRK-REC
+                USING  SORT-IN
+                GIVING SORT-OUT.
+             STOP RUN.
+])
+
+AT_CHECK([$COMPILE prog.cob], [0], [], [])
+AT_CHECK([./prog], [0], [], [])
+AT_CHECK([cat SORT-OUT], [0], [], [])
+
+AT_CLEANUP
+
+
+AT_SETUP([ASSIGN with LOCAL-STORAGE item])
+AT_KEYWORDS([runfile])
+
+AT_DATA([test.txt],
+[hello
+])
+
+AT_DATA([prog.cob], [
+       IDENTIFICATION   DIVISION.
+       PROGRAM-ID.      prog.
+       ENVIRONMENT      DIVISION.
+       INPUT-OUTPUT     SECTION.
+       FILE-CONTROL.
+       SELECT test-file ASSIGN path
+                        ORGANIZATION LINE SEQUENTIAL.
+       DATA             DIVISION.
+       FILE	            SECTION.
+       FD  test-file.
+       01  test-rec     PIC X(5).
+       LOCAL-STORAGE    SECTION.
+       01  path         PIC X(10) VALUE "test.txt".
+       PROCEDURE        DIVISION.
+           OPEN INPUT test-file.
+           READ test-file   END-READ.
+           DISPLAY test-rec END-DISPLAY.
+           CLOSE test-file.
+           STOP RUN.
+])
+
+AT_CHECK([$COMPILE prog.cob])
+AT_CHECK([./prog], [0],
+[hello
+], [])
+
+AT_CLEANUP
+
+AT_SETUP([ASSIGN with LOCAL-STORAGE item and INITIAL prog])
+AT_KEYWORDS([runfile])
+
+# Files are initialised in a different location in INITIAL program, hence the
+# need for a separate test.
+
+AT_DATA([test.txt],
+[hello
+])
+
+AT_DATA([prog.cob], [
+       IDENTIFICATION   DIVISION.
+       PROGRAM-ID.      prog INITIAL.
+       ENVIRONMENT      DIVISION.
+       INPUT-OUTPUT     SECTION.
+       FILE-CONTROL.
+       SELECT test-file ASSIGN path
+                        ORGANIZATION LINE SEQUENTIAL.
+       DATA             DIVISION.
+       FILE	            SECTION.
+       FD  test-file.
+       01  test-rec     PIC X(5).
+       LOCAL-STORAGE    SECTION.
+       01  path         PIC X(10) VALUE "test.txt".
+       PROCEDURE        DIVISION.
+           OPEN INPUT test-file.
+           READ test-file   END-READ.
+           DISPLAY test-rec END-DISPLAY.
+           CLOSE test-file.
+           STOP RUN.
+])
+
+AT_CHECK([$COMPILE prog.cob])
+AT_CHECK([./prog], [0],
+[hello
+], [])
+
+AT_CLEANUP

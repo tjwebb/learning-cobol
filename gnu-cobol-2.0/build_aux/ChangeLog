@@ -1,0 +1,17 @@
+
+2016-08-10  Simon 'sf-mensch/human' Sobisch <simonsobisch@gnu.org>
+
+	* general: updated to versions from automake 1.15
+	* ylwrap: added from automake 1.15
+	* config.sub, config.guess: updated to recent versions from
+	  git.savannah.gnu.org/gitweb/?p=config.git, backported support
+	  for "ancient" systems without uname(1)
+
+2015-07-10  Simon 'sf-mensch/human' Sobisch <simonsobisch@gnu.org>
+
+	* general: moved additional build-scripts from rootdir to build_aux
+	* mdate-sh: added from automake 1.11.1
+	* config.sub, config.guess: updated to recent versions from
+	  git.savannah.gnu.org/gitweb/?p=config.git to solve build issues
+	  on different machines, but backported support for "ancient" systems
+	  without uname(1) [removed 2014-01-25] from old version
