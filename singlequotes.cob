@@ -6,4 +6,4 @@
            function all intrinsic.
        procedure division.
        main.
-           display "module-id = " module-id.
+           display 'module-id = ' module-id.
